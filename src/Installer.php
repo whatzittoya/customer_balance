@@ -84,7 +84,8 @@ final class Installer
             'user'        => trim((string) ($in['user'] ?? '')),
             'pass'        => (string) ($in['pass'] ?? ''),
             'parent_name' => trim((string) ($in['parent_name'] ?? '')),
-            'charset'     => 'utf8mb4',
+            // utf8 is understood everywhere; upgraded below when the server has utf8mb4.
+            'charset'     => 'utf8',
         ];
         $errors = [];
 
@@ -110,10 +111,14 @@ final class Installer
             return ['errors' => ['form' => 'Could not connect to MySQL: ' . $e->getMessage()], 'created' => []];
         }
 
+        // MySQL before 5.5.3 (some old shared hosts) has no utf8mb4.
+        $charset = $this->hasCharset($server, 'utf8mb4') ? 'utf8mb4' : 'utf8';
+        $db['charset'] = $charset;
+
         // Allowed on a local server, usually denied on shared hosting where
         // the database is made in cPanel first — so a refusal isn't an error.
         try {
-            $server->exec('CREATE DATABASE IF NOT EXISTS `' . $db['parent_name'] . '` CHARACTER SET utf8mb4');
+            $server->exec('CREATE DATABASE IF NOT EXISTS `' . $db['parent_name'] . '` CHARACTER SET ' . $charset);
         } catch (PDOException) {
         }
 
@@ -128,7 +133,7 @@ final class Installer
         try {
             $before = $this->tables($pdo);
             foreach ($this->statements() as $sql) {
-                $pdo->exec($sql);
+                $pdo->exec(str_replace('utf8mb4', $charset, $sql));
             }
             $created = array_values(array_diff($this->tables($pdo), $before));
         } catch (PDOException $e) {
@@ -147,7 +152,7 @@ final class Installer
     /** @param array<string,mixed> $db */
     private function connect(array $db, ?string $name): PDO
     {
-        $dsn = sprintf('mysql:host=%s;port=%s;charset=%s', $db['host'], $db['port'], $db['charset'] ?? 'utf8mb4');
+        $dsn = sprintf('mysql:host=%s;port=%s;charset=%s', $db['host'], $db['port'], $db['charset'] ?? 'utf8');
         if ($name !== null) {
             $dsn .= ';dbname=' . $name;
         }
@@ -157,6 +162,11 @@ final class Installer
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_TIMEOUT            => 5,
         ]);
+    }
+
+    private function hasCharset(PDO $pdo, string $charset): bool
+    {
+        return $pdo->query('SHOW CHARACTER SET LIKE ' . $pdo->quote($charset))->fetch() !== false;
     }
 
     /** @return array<int,string> */
@@ -194,6 +204,7 @@ final class Installer
             'parent_name' => $db['parent_name'],
             'user'        => $db['user'],
             'pass'        => $db['pass'],
+            'charset'     => $db['charset'],
         ]);
         if (strlen((string) $this->config['app_secret']) < 16) {
             $local['app_secret'] = bin2hex(random_bytes(32));

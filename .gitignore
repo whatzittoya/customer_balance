@@ -1,0 +1,17 @@
+# Keep vendor/ committed so it can be copied to XAMPP without Composer.
+# (Comment out the line below if you prefer running `composer install` on the server.)
+# /vendor/
+
+.env
+.DS_Store
+*.log
+
+# Machine-local config overrides (DB password etc.)
+/config/local.php
+
+# Client logos uploaded through the super admin
+/uploads/logos/*
+!/uploads/logos/.gitkeep
+
+# Written when first-run setup completes; keeps the setup page closed
+/config/installed.lock

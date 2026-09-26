@@ -1,0 +1,19 @@
+<?php
+
+/**
+ * Local, untracked overrides for config/config.php.
+ * Only the keys listed here replace the committed defaults.
+ */
+
+declare(strict_types=1);
+
+return [
+    'db' => [
+        'user' => 'root',
+        'pass' => 'your-mysql-password',
+    ],
+    // Long random string. Signs the customer QR links — changing it later
+    // invalidates every QR code already printed. Generate one with:
+    //     php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
+    'app_secret' => 'change-me',
+];
